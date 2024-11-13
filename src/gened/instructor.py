@@ -54,6 +54,56 @@ def get_queries(class_id: int, user: int | None = None) -> list[Row]:
 
     return queries
 
+def get_summary(class_id: int, user: int, context: int | None = None) -> list[Row]:
+    db = get_db()
+    where_clause = "WHERE UNLIKELY(roles.class_id=?)"  # UNLIKELY() to help query planner in older sqlite versions
+    params = [class_id]
+
+    if user is not None:
+        where_clause += " AND users.id=?"
+        params += [user]
+    if context is not None:
+        where_clause += " AND contexts.id=?"
+        params += [context]
+
+
+    # Query to retrieve all table names
+    summary = db.execute(f"""
+            SELECT 
+                queries.id,
+                context_string_id,
+                context_name,
+                users.display_name,
+                strftime('%Y-%m-%d', query_time) AS query_date,  -- Extract date
+                strftime('%H:%M:%S', query_time) AS query_time  -- Extract time
+            FROM queries
+            JOIN contexts
+                ON queries.context_name=contexts.name
+            JOIN users
+                ON queries.user_id=users.id
+            JOIN roles
+                ON queries.role_id=roles.id
+            {where_clause}
+            ORDER BY queries.id DESC
+        """, params).fetchall()
+    return summary
+
+def get_contexts(class_id: int, for_export: bool = False) -> list[Row]:
+    db = get_db()
+
+    contexts = db.execute(f"""
+        SELECT
+            contexts.id,
+            contexts.name,
+            contexts.class_id,
+            contexts.available
+        FROM contexts         
+        WHERE contexts.class_id=?
+        GROUP BY contexts.id
+        ORDER BY name
+    """, [class_id]).fetchall()
+
+    return contexts
 
 def get_users(class_id: int, for_export: bool = False) -> list[Row]:
     db = get_db()
@@ -82,6 +132,33 @@ def get_users(class_id: int, for_export: bool = False) -> list[Row]:
     return users
 
 
+def get_tables():
+    db = get_db()
+    cursor = db.cursor()
+     # Query to retrieve all table names
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    tables = cursor.fetchall()
+
+    print("Table Names:")
+    for table in tables:
+        print(table["name"])  # Accessing the name directly if using sqlite3.Row
+
+    queries = cursor.execute(f"""
+        PRAGMA table_info(context_strings);
+    """).fetchall()
+
+    # Print the column names
+    print("Column Names:")
+    for column in queries:
+        print(column["name"])  # The column name is in the second element
+
+@bp.route('/api/data', methods=['GET'])
+def get_data():
+    data = get_db()
+    # Convert data to JSON-friendly format, e.g., list of dictionaries
+    json_data = [{"column1": row[0], "column2": row[1]} for row in data]
+    #return jsonify(json_data)
+
 @bp.route("/")
 def main() -> str | Response:
     auth = get_auth()
@@ -89,6 +166,8 @@ def main() -> str | Response:
     assert class_id is not None
 
     users = get_users(class_id)
+    contexts = get_contexts(class_id)
+    
 
     sel_user_name = None
     sel_user_id = request.args.get('user', type=int)
@@ -97,9 +176,19 @@ def main() -> str | Response:
         if sel_user_row:
             sel_user_name = sel_user_row['display_name']
 
-    queries = get_queries(class_id, sel_user_id)
+    sel_context_name = None
+    sel_context_id = request.args.get('context', type=int)
+    if sel_context_id is not None:
+        sel_context_row = next(filter(lambda row: row['id'] == int(sel_context_id), contexts), None)
+        if sel_context_row:
+            sel_context_name = sel_context_row['name']
 
-    return render_template("instructor.html", users=users, queries=queries, user=sel_user_name)
+    summary = get_summary(class_id, sel_user_id, sel_context_id)
+    queries = get_queries(class_id, sel_user_id)
+    get_tables()
+
+
+    return render_template("instructor.html",contexts=contexts, users=users, summary=summary, queries=queries, user=sel_user_name, context=sel_context_name)
 
 
 @bp.route("/csv/<string:kind>")

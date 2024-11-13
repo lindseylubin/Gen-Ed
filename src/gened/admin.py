@@ -183,6 +183,7 @@ def get_queries_csv() -> str | Response:
     filters = Filters()
 
     specs = [
+        FilterSpec('summary', 'consumers.id', 'consumers.lti_consumer'),
         FilterSpec('consumer', 'consumers.id', 'consumers.lti_consumer'),
         FilterSpec('class', 'classes.id', 'classes.name'),
         FilterSpec('user', 'users.id', 'users.display_name'),
@@ -206,6 +207,7 @@ def main() -> str:
     filters = Filters()
 
     specs = [
+        FilterSpec('summary', 'consumers.id', 'consumers.lti_consumer'),
         FilterSpec('consumer', 'consumers.id', 'consumers.lti_consumer'),
         FilterSpec('class', 'classes.id', 'classes.name'),
         FilterSpec('user', 'users.id', 'users.display_name'),
@@ -323,7 +325,6 @@ def main() -> str:
     # queries, filtered by consumer, class, user, and role
     where_clause, where_params = filters.make_where(['consumer', 'class', 'user', 'role'])
     queries = get_queries_filtered(where_clause, where_params, queries_limit=200)
-
     charts = []
     for generate_chart in _admin_chart_generators:
         charts.extend(generate_chart(where_clause, where_params))

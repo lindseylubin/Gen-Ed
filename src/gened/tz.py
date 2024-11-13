@@ -40,4 +40,4 @@ def init_app(app: Flask) -> None:
         else:
             local_tz = pytz.timezone(session['timezone'])
             local_dt = utc_dt.astimezone(local_tz)
-            return local_dt.strftime("%Y-%m-%d %-I:%M%P")
+            return local_dt.strftime("%Y-%m-%d %I:%M%p")

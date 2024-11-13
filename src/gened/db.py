@@ -110,6 +110,16 @@ def init_db() -> None:
     db.commit()
 
 
+@click.command('updatedb')
+def update_db_command() -> None:
+    db = get_db()
+    """Update the database."""
+     # App-specific schema in the app's package
+    with current_app.open_resource('manual_entry.sql', 'rb') as f:
+        db.executescript(f.read().decode("utf-8"))  # type: ignore [attr-defined]
+    db.commit()
+    click.echo('Updated the database.')
+
 @click.command('initdb')
 def init_db_command() -> None:
     """Clear the existing data and create new tables."""
@@ -173,5 +183,6 @@ def setpassword_command(username: str) -> None:
 def init_app(app: Flask) -> None:
     app.teardown_appcontext(close_db)
     app.cli.add_command(init_db_command)
+    app.cli.add_command(update_db_command)
     app.cli.add_command(newuser_command)
     app.cli.add_command(setpassword_command)

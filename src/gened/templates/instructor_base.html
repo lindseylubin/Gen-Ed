@@ -12,6 +12,19 @@ SPDX-License-Identifier: AGPL-3.0-only
   <h1 class="title">{{ auth['class_name'] }}</h1>
   <div class="tbl_cols">
     <div class="tbl_col" style="width: 35em;">
+      <h2 class="is-size-3">Contexts</h2>
+      {{ datatable(
+           'contexts',
+           [
+             ('id', 'id'),
+             ('name', 'name')
+           ],
+           contexts,
+           link_col=0,
+           link_template="?context=${value}",
+           csv_link=url_for("instructor.get_csv", kind="contexts")
+         )
+      }}
       <h2 class="is-size-3">Users</h2>
       {{ datatable(
            'users',
@@ -33,6 +46,23 @@ SPDX-License-Identifier: AGPL-3.0-only
       <p><em>Users that are not active will not be able to access this class.</em></p>
     </div>
     <div class="tbl_col" style="width: 75em; flex-grow: 1;">
+      <h2 class="is-size-3">
+        Summary
+        {% if user %}
+        <a class="button is-info is-rounded p-3 mt-2" style="height: 2em;" href="?" title="Remove filter">
+          user = {{user}}
+          <span class="delete is-small is-link ml-2"></span>
+        </a>
+        {% endif %}
+        {% if context %}
+        <a class="button is-info is-rounded p-3 mt-2" style="height: 2em;" href="?" title="Remove filter">
+          context = {{context}}
+          <span class="delete is-small is-link ml-2"></span>
+        </a>
+        {% endif %}
+      </h2>
+      {% block instructor_summary %}
+      {% endblock %}
       <h2 class="is-size-3">
         Queries
         {% if user %}

@@ -12,6 +12,7 @@ from typing import Any
 import flask.app
 from dotenv import load_dotenv
 from flask import Flask, render_template
+from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import (
@@ -61,6 +62,7 @@ def create_app_base(import_name: str, app_config: dict[str, Any], instance_path:
 
     # create the Flask application object
     app = Flask(import_name, instance_path=str(instance_path), instance_relative_config=True)
+    CORS(app, origins="http://localhost:3000", supports_credentials=True)
 
     # Configure logging
     # (from https://flask.palletsprojects.com/en/3.0.x/logging/#basic-configuration)
@@ -111,7 +113,7 @@ def create_app_base(import_name: str, app_config: dict[str, Any], instance_path:
         # Some simple/weak XSS/CSRF protection
         SESSION_COOKIE_SECURE=True,
         SESSION_COOKIE_HTTPONLY=True,
-        SESSION_COOKIE_SAMESITE='Lax',
+        SESSION_COOKIE_SAMESITE='None',
         # Cache timeout for static files (seconds)
         SEND_FILE_MAX_AGE_DEFAULT=3*60*60,  # 3 hours
         # Free query tokens given to new users

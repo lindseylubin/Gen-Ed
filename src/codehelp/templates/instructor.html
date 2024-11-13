@@ -6,6 +6,20 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 {% extends "instructor_base.html" %}
 
+{% block instructor_summary %}
+{{ datatable('summary', [
+            ('id', 'id'), 
+            ('date queried', 'query_date'),
+            ('user_id', 'user_id'), 
+            ('context_string_id', 'context_string_id'),
+            ('assignment', 'context_name')
+          ],
+          summary,
+          hidden_cols=['user_id','id']
+
+)
+}}
+{% endblock %}
 {% block instructor_queries %}
 {{
 datatable('queries', [

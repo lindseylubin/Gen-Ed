@@ -96,10 +96,7 @@ Keywords and concepts to avoid (do not mention these in your response at all): <
 {% if tools %}
 <p><b>Environment & tools:</b> {{ tools }}</p>
 {% endif %}
-{% if details %}
-<p><b>Details:</b></p>
-{{ details | markdown }}
-{% endif %}
+
 """)
         return template.render(tools=self._list_fmt(self.tools), details=self.details, avoid=self._list_fmt(self.avoid))
 
