@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 import datetime as dt
+import json
 from sqlite3 import Row
 
 from flask import (
@@ -13,7 +14,8 @@ from flask import (
     request,
 )
 from werkzeug.wrappers.response import Response
-
+from codehelp import helper
+from .openai import LLMConfig, get_completion, with_llm
 from .auth import get_auth, instructor_required
 from .csv import csv_response
 from .db import get_db
@@ -27,7 +29,7 @@ def before_request() -> None:
     """ Apply decorator to protect all instructor blueprint endpoints. """
 
 
-def get_queries(class_id: int, user: int | None = None) -> list[Row]:
+def get_queries(class_id: int, user: int | None = None, context: int | None = None) -> list[Row]:
     db = get_db()
 
     where_clause = "WHERE UNLIKELY(roles.class_id=?)"  # UNLIKELY() to help query planner in older sqlite versions
@@ -36,14 +38,21 @@ def get_queries(class_id: int, user: int | None = None) -> list[Row]:
     if user is not None:
         where_clause += " AND users.id=?"
         params += [user]
+    if context is not None:
+        where_clause += " AND contexts.id=?"
+        params += [context]
 
     queries = db.execute(f"""
         SELECT
             queries.id,
             users.display_name,
             users.email,
+            context_id,
+            context_name,
             queries.*
         FROM queries
+        JOIN contexts
+            ON queries.context_name=contexts.name
         JOIN users
             ON queries.user_id=users.id
         JOIN roles
@@ -51,7 +60,6 @@ def get_queries(class_id: int, user: int | None = None) -> list[Row]:
         {where_clause}
         ORDER BY queries.id DESC
     """, params).fetchall()
-
     return queries
 
 def get_summary(class_id: int, user: int, context: int | None = None) -> list[Row]:
@@ -66,27 +74,24 @@ def get_summary(class_id: int, user: int, context: int | None = None) -> list[Ro
         where_clause += " AND contexts.id=?"
         params += [context]
 
+    cursor = db.cursor()
+    rows = cursor.execute(f"""SELECT
+            queries.*
+        FROM queries
+        JOIN contexts
+            ON queries.context_name=contexts.name
+        JOIN users
+            ON queries.user_id=users.id
+        JOIN roles
+            ON queries.role_id=roles.id
+        {where_clause}
+        ORDER BY queries.id DESC
+    """, params).fetchall()
 
-    # Query to retrieve all table names
-    summary = db.execute(f"""
-            SELECT 
-                queries.id,
-                context_string_id,
-                context_name,
-                users.display_name,
-                strftime('%Y-%m-%d', query_time) AS query_date,  -- Extract date
-                strftime('%H:%M:%S', query_time) AS query_time  -- Extract time
-            FROM queries
-            JOIN contexts
-                ON queries.context_name=contexts.name
-            JOIN users
-                ON queries.user_id=users.id
-            JOIN roles
-                ON queries.role_id=roles.id
-            {where_clause}
-            ORDER BY queries.id DESC
-        """, params).fetchall()
-    return summary
+    # Convert the rows into an array (list of dictionaries, or any other structure)
+    array = [{'id': row[0], 'context': row[2], 'code': row[3], 'error': row[4], 'issue': row[5], 'response_text': row[6]} for row in rows]
+    json_str = json.dumps(array)
+    return json_str
 
 def get_contexts(class_id: int, for_export: bool = False) -> list[Row]:
     db = get_db()
@@ -160,7 +165,8 @@ def get_data():
     #return jsonify(json_data)
 
 @bp.route("/")
-def main() -> str | Response:
+@with_llm(spend_token=False)
+def main(llm: LLMConfig) -> str | Response:
     auth = get_auth()
     class_id = auth['class_id']
     assert class_id is not None
@@ -183,12 +189,10 @@ def main() -> str | Response:
         if sel_context_row:
             sel_context_name = sel_context_row['name']
 
-    summary = get_summary(class_id, sel_user_id, sel_context_id)
-    queries = get_queries(class_id, sel_user_id)
-    get_tables()
+    queries = get_queries(class_id, sel_user_id, sel_context_id)
+    summary = helper.get_summary(llm, get_summary(class_id, sel_user_id, sel_context_id))
 
-
-    return render_template("instructor.html",contexts=contexts, users=users, summary=summary, queries=queries, user=sel_user_name, context=sel_context_name)
+    return render_template("instructor.html",contexts=contexts, users=users, queries=queries, summary=summary, user=sel_user_name, context=sel_context_name)
 
 
 @bp.route("/csv/<string:kind>")

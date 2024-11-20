@@ -207,7 +207,7 @@ def main() -> str:
     filters = Filters()
 
     specs = [
-        FilterSpec('summary', 'consumers.id', 'consumers.lti_consumer'),
+        FilterSpec('contexts', 'contexts.id', 'contexts.name'),
         FilterSpec('consumer', 'consumers.id', 'consumers.lti_consumer'),
         FilterSpec('class', 'classes.id', 'classes.name'),
         FilterSpec('user', 'users.id', 'users.display_name'),

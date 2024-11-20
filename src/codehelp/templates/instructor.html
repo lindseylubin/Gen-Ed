@@ -5,27 +5,18 @@ SPDX-License-Identifier: AGPL-3.0-only
 #}
 
 {% extends "instructor_base.html" %}
-
-{% block instructor_summary %}
-{{ datatable('summary', [
-            ('id', 'id'), 
-            ('date queried', 'query_date'),
-            ('user_id', 'user_id'), 
-            ('context_string_id', 'context_string_id'),
-            ('assignment', 'context_name')
-          ],
-          summary,
-          hidden_cols=['user_id','id']
-
-)
-}}
+{% block summary %}
+    <p>{{summary | safe}}</p>
 {% endblock %}
+
+
 {% block instructor_queries %}
 {{
 datatable('queries', [
     ('id', 'id'),
     ('user', 'display_name'),
     ('time', 'query_time'),
+    ('context_id', 'context_id'),
     ('context', 'context_name'),
     ('code', 'code'),
     ('error', 'error'),
@@ -34,7 +25,7 @@ datatable('queries', [
     ('helpful', 'helpful_emoji')
   ],
   queries,
-  hidden_cols=['id'],
+  hidden_cols=['id','context_id'],
   link_col=0,
   link_template="/help/view/${value}",
   csv_link=url_for("instructor.get_csv", kind="queries")
