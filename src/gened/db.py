@@ -120,6 +120,102 @@ def update_db_command() -> None:
     db.commit()
     click.echo('Updated the database.')
 
+@click.command('registeruser')
+@click.argument('username')
+@click.argument('classname')
+#@click.option('--', help="add user to class as an student (default), admmin, or tester")
+def register_user_command(username: str, classname: str) -> None:
+    db = get_db() 
+    user_row = db.execute("""
+        SELECT users.id
+        FROM users
+        WHERE users.display_name = ?
+    """, [username]).fetchone()
+    user_id = user_row['id']
+
+    if not user_row:
+        click.echo('User does not exist')
+        return
+    
+    # Get the class info
+    class_row = db.execute("""
+        SELECT classes.id, classes_user.link_reg_expires
+        FROM classes
+        JOIN classes_user
+          ON classes.id = classes_user.class_id
+        WHERE classes.name = ?
+    """, [classname]).fetchone()
+
+    if not class_row:
+        click.echo('Class does not exist.')
+        return
+    class_id = class_row['id']
+
+    role_row = db.execute("SELECT * FROM roles WHERE class_id=? AND user_id=?", [class_id, user_id]).fetchone()
+    if role_row:
+        click.echo('User is already registered to this class.')
+
+    #if not role:
+    #    role = 'student'
+    db.execute(
+        "INSERT INTO roles (user_id, class_id, role) VALUES (?, ?, ?)",
+        [user_id, class_id, 'student']
+    )
+    db.commit()
+    click.echo('Registration successful.')
+
+@click.command('showdb')
+@click.argument('table')
+@click.option("--column", default=None)
+@click.option('--value', default=None)
+def showdb_command(table: str, column: str, value: str) -> None:
+    db = get_db() 
+    curs = db.cursor()
+    
+    # Validate the table name (optional but highly recommended)
+    valid_tables = [
+        'consumers', 
+        'auth_providers', 
+        'users', 
+        'auth_local',
+        'auth_external',
+        'roles',
+        'classes',
+        'classes_lti',
+        'classes_user',
+        'demo_links',
+        'migrations',
+        'models',
+        'experiments',
+        'experiment_class'
+        ]  # Allowlist of valid tables
+    
+    if table not in valid_tables:
+        raise ValueError("{table} is an invalid table name")
+
+    if column is None and value is None:
+    # Dynamically build the SQL query
+        query = f"SELECT * FROM {table} "
+        result = curs.execute(query).fetchall()
+    elif value is None:
+        query = f"SELECT {column} FROM {table}"
+        result = curs.execute(query).fetchall()
+    elif column is None:   
+        raise ValueError("column arguement is needed to get a value")
+
+    else:
+        query = f"SELECT * FROM {table} where {column} = ?"
+        result = curs.execute(query, (value,)).fetchall()
+
+
+    if not result:
+        raise ValueError("{table} table is empty")
+
+    for row in result:
+        print(row)
+        for col in row:
+            print(col)
+
 @click.command('initdb')
 def init_db_command() -> None:
     """Clear the existing data and create new tables."""
@@ -184,5 +280,7 @@ def init_app(app: Flask) -> None:
     app.teardown_appcontext(close_db)
     app.cli.add_command(init_db_command)
     app.cli.add_command(update_db_command)
+    app.cli.add_command(showdb_command)
+    app.cli.add_command(register_user_command)
     app.cli.add_command(newuser_command)
     app.cli.add_command(setpassword_command)

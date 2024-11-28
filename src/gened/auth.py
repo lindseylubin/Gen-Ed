@@ -173,6 +173,8 @@ def _get_auth_from_session() -> AuthDict:
             auth_dict['other_classes'].append(class_dict)
 
     if not found_role and not auth_dict['is_admin']:
+        print("No Role found /not admin")
+        #TO DO: fix bug with this if statement (Delete  and not auth_dict['is_admin'])
         # ensure we don't keep a class_id in auth if it's not a valid/active one
         auth_dict['class_id'] = None
 
