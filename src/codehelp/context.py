@@ -160,3 +160,14 @@ def record_context_string(context_str: str) -> int:
     context_string_id = cur.fetchone()['id']
     assert isinstance(context_string_id, int)
     return context_string_id
+
+def get_context_id(context_name: str) -> int:
+    """ Return a id for context
+    """
+    db = get_db()
+    # Add the context string to the context_strings table, but if it's a duplicate, just get the row ID of the existing one.
+    # The "UPDATE SET id=id" is a no-op, but it allows the "RETURNING" to work in case of a conflict as well.
+    cur = db.execute("SELECT id FROM contexts WHERE name = ?", (context_name,))
+    context_id = cur.fetchone()['id']
+    assert isinstance(context_id, int)
+    return context_id

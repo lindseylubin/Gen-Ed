@@ -35,6 +35,7 @@ from .context import (
     ContextConfig,
     get_available_contexts,
     get_context_by_name,
+    get_context_id,
     record_context_string,
 )
 
@@ -155,12 +156,12 @@ async def run_query_prompts(llm: LLMConfig, context: ContextConfig | None, code:
     response_main, response_txt = await task_main
     responses.append(response_main)
 
-    if "```" in response_txt or "should look like" in response_txt or "should look something like" in response_txt:
-        # That's probably too much code.  Let's clean it up...
-        cleanup_prompt = prompts.make_cleanup_prompt(response_text=response_txt)
-        cleanup_response, cleanup_response_txt = await get_completion(client, model, prompt=cleanup_prompt)
-        responses.append(cleanup_response)
-        response_txt = cleanup_response_txt
+    # if "```" in response_txt or "should look like" in response_txt or "should look something like" in response_txt:
+    #     # That's probably too much code.  Let's clean it up...
+    #     cleanup_prompt = prompts.make_cleanup_prompt(response_text=response_txt)
+    #     cleanup_response, cleanup_response_txt = await get_completion(client, model, prompt=cleanup_prompt)
+    #     responses.append(cleanup_response)
+    #     response_txt = cleanup_response_txt
 
     # Check whether there is sufficient information
     # Checking after processing main+cleanup prevents this from holding up the start of cleanup if this was slow
@@ -195,14 +196,16 @@ def record_query(context: ContextConfig | None, code: str, error: str, issue: st
     if context is not None:
         context_name = context.name
         context_str = context.prompt_str()
+        context_id = get_context_id(context_name)
         context_string_id = record_context_string(context_str)
     else:
         context_name = None
+        context_id = None
         context_string_id = None
 
     cur = db.execute(
-        "INSERT INTO queries (context_name, context_string_id, code, error, issue, user_id, role_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [context_name, context_string_id, code, error, issue, auth['user_id'], role_id]
+        "INSERT INTO queries (context_name, context_id, context_string_id, code, error, issue, user_id, role_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [context_name, context_id, context_string_id, code, error, issue, auth['user_id'], role_id]
     )
     new_row_id = cur.lastrowid
     db.commit()
@@ -335,3 +338,16 @@ def get_topics(llm: LLMConfig, query_id: int) -> list[str]:
     db.execute("UPDATE queries SET topics_json=? WHERE id=?", [response_txt, query_id])
     db.commit()
     return topics
+
+def get_summary(llm: LLMConfig, json_str: str) -> list[str]:
+   
+    messages = prompts.make_summary_prompt(
+        json_str
+    )
+
+    response, response_txt = asyncio.run(get_completion(
+        client=llm.client,
+        model=llm.model,
+        messages=messages,
+    ))
+    return response_txt

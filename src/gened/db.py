@@ -134,7 +134,7 @@ def register_user_command(username: str, classname: str) -> None:
     user_id = user_row['id']
 
     if not user_row:
-        click.echo('User does not exist')
+        click.echo(f'{username} does not exist')
         return
     
     # Get the class info
@@ -147,13 +147,13 @@ def register_user_command(username: str, classname: str) -> None:
     """, [classname]).fetchone()
 
     if not class_row:
-        click.echo('Class does not exist.')
+        click.echo(f'{classname} does not exist.')
         return
     class_id = class_row['id']
 
     role_row = db.execute("SELECT * FROM roles WHERE class_id=? AND user_id=?", [class_id, user_id]).fetchone()
     if role_row:
-        click.echo('User is already registered to this class.')
+        click.echo(f'{username} is already registered to this class.')
 
     #if not role:
     #    role = 'student'
@@ -187,11 +187,15 @@ def showdb_command(table: str, column: str, value: str) -> None:
         'migrations',
         'models',
         'experiments',
-        'experiment_class'
+        'experiment_class',
+        'queries',
+        'contexts',
+        'context_strings'
         ]  # Allowlist of valid tables
     
     if table not in valid_tables:
-        raise ValueError("{table} is an invalid table name")
+        click.echo(f"{table} is an invalid table name")
+        return
 
     if column is None and value is None:
     # Dynamically build the SQL query
@@ -201,15 +205,16 @@ def showdb_command(table: str, column: str, value: str) -> None:
         query = f"SELECT {column} FROM {table}"
         result = curs.execute(query).fetchall()
     elif column is None:   
-        raise ValueError("column arguement is needed to get a value")
+        click.echo("column arguement is needed to get a value")
+        return
 
     else:
         query = f"SELECT * FROM {table} where {column} = ?"
         result = curs.execute(query, (value,)).fetchall()
 
-
     if not result:
-        raise ValueError("{table} table is empty")
+        click.echo(f"{table} table is empty")
+        return
 
     for row in result:
         print(row)

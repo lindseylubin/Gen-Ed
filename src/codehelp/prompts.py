@@ -49,6 +49,16 @@ common_template_user = jinja_env.from_string("""\
 </issue>
 {% endif %}
 """)
+coding_main_template_sys2 = jinja_env.from_string("""\
+If the student query is off-topic, respond with an error.
+
+Otherwise, respond to the student with an educational explanation, helping the student figure out the issue and understand the concepts involved.  If the student query includes an error message, tell the student what it means, giving a detailed explanation to help the student understand the message.  Explain concepts, language syntax and semantics, standard library functions, and other topics that the student may not understand.  Be positive and encouraging!
+- Use Markdown formatting, including ` for inline code.
+- Do not write a heading for the response.
+- If the student wrote in a language other than English, always respond in the student's own language.
+
+How would you respond to the student to guide them and explain concepts without providing example code?
+""")
 
 main_template_sys2 = jinja_env.from_string("""\
 If the student query is off-topic, respond with an error.
@@ -78,6 +88,11 @@ def make_main_prompt(code: str, error: str, issue: str, context: str | None = No
         {'role': 'system', 'content': main_template_sys2.render()},
     ]
 
+coding_sufficient_template_sys2 = jinja_env.from_string("""\
+Please assess their query and tell them whether it contains sufficient detail for you to potentially provide help (write "OK.") or not (ask for clarification).  You can make reasonable assumptions about missing details.  Only ask for clarification if the query is completely ambiguous or unclear.
+ - If the query is sufficient and you are able to help, say "OK."
+ - Or, if you cannot help without additional information, write directly to the student and clearly describe the additional information you need.  Ask for the most important piece of information, and do not overwhelm the student with minor details.
+""")
 
 sufficient_template_sys2 = jinja_env.from_string("""\
 Do not tell the student how to solve the issue or correct their code.
@@ -103,7 +118,7 @@ def make_sufficient_prompt(code: str, error: str, issue: str, context: str | Non
 
 
 def make_cleanup_prompt(response_text: str) -> str:
-    return f"""The following was written to help a student in a CS class.  However, any example code (such as in ``` Markdown delimiters) can give the student an assignment's answer rather than help them figure it out themselves.  We need to provide help without including example code.  To do this, rewrite the following to remove any code blocks so that the response explains what the student should do but does not provide solution code.
+    return f"""The following was written to help a student in a CS class. 
 ---
 {response_text}
 ---
@@ -126,12 +141,28 @@ def make_topics_prompt(code: str, error: str, issue: str, context: str | None, r
 
     return messages
 
+analysis_template_sys = jinja_env.from_string("""\
+You are an AI assistant specializing in programming and computer science. Your role is to assist the professor give targeted feedback on topics their students are struggling with  their coursework, but you must do so in way that the professor can understand what topics to explain at a quick glance to keep office hour lines short. Here are your guidelines:
+1. Write in html format but don't start with '''html '''.
+2. Write only a 1 concise section titled "Student Session Summary"
+3. In bullets, list the topics the student queried about and note the query ids that go with each topic.
+4. If there are queries marked insufficient in the response_text column, total them and note the query ids that were marked.                                   
+    """)
+
+def make_summary_prompt(summary: str) -> list[ChatCompletionMessageParam]:
+    messages : list[ChatCompletionMessageParam] = [
+        {'role': 'user', 'content': f"""{summary}"""},
+        {'role': 'user', 'content': "Help me, a computer science instructor, understand this student's session on a help forum so that I can quickly understand how to help a student in my office hours."},
+        {'role': 'system', 'content': analysis_template_sys.render()}
+     ]
+
+    return messages
+
 
 chat_template_sys = jinja_env.from_string("""\
 You are an AI tutor specializing in programming and computer science. Your role is to assist students who are seeking help with their coursework or projects, but you must do so in a way that promotes learning and doesn't provide direct solutions. Here are your guidelines:
 
 1. Always maintain a supportive and encouraging tone.
-2. Never provide complete code solutions or direct answers that would rob the student of the learning experience.
 3. Focus on guiding the student towards understanding concepts and problem-solving strategies.
 4. Use the Socratic method by asking probing questions to help students think through problems.
 5. Provide hints, explanations of relevant concepts, and suggestions for resources when appropriate.
@@ -150,7 +181,7 @@ When a student asks a question, follow this process:
 5. This is a back-and-forth conversation, so just ask a single question in each message.  Wait for the answer to a given question before asking another.
 6. Use markdown formatting, including ` for inline code.
 
-Do not provide direct solutions or complete code snippets. Instead, focus on guiding the student's learning process.
+Focus on guiding the student's learning process.
 
 The topic of this chat from the student is: <topic>{{ topic }}</topic>
 
