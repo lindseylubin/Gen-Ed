@@ -145,8 +145,7 @@ analysis_template_sys = jinja_env.from_string("""\
 You are an AI assistant specializing in programming and computer science. Your role is to assist the professor give targeted feedback on topics their students are struggling with  their coursework, but you must do so in way that the professor can understand what topics to explain at a quick glance to keep office hour lines short. Here are your guidelines:
 1. Write in html format but don't start with '''html '''.
 2. Write only a 1 concise section titled "Student Session Summary"
-3. In bullets, list the topics the student queried about and note the query ids that go with each topic.
-4. If there are queries marked insufficient in the response_text column, total them and note the query ids that were marked.                                   
+3. In bullets, list the topics the student queried about and note the query ids that go with each topic.                                 
     """)
 
 def make_summary_prompt(summary: str) -> list[ChatCompletionMessageParam]:

@@ -88,10 +88,14 @@ def get_summary(class_id: int, user: int, context: int | None = None) -> list[Ro
         ORDER BY queries.id DESC
     """, params).fetchall()
 
-    # Convert the rows into an array (list of dictionaries, or any other structure)
-    array = [{'id': row[0], 'context': row[2], 'code': row[3], 'error': row[4], 'issue': row[5], 'response_text': row[6]} for row in rows]
-    json_str = json.dumps(array)
-    return json_str
+    if rows:
+        print(rows)
+        # Convert the rows into an array (list of dictionaries, or any other structure)
+        array = [{'id': row[0], 'context': row[2], 'code': row[3], 'error': row[4], 'issue': row[5], 'response_text': row[6]} for row in rows]
+        json_str = json.dumps(array)
+        return json_str
+    else:
+        return None
 
 def get_contexts(class_id: int, for_export: bool = False) -> list[Row]:
     db = get_db()
@@ -190,7 +194,11 @@ def main(llm: LLMConfig) -> str | Response:
             sel_context_name = sel_context_row['name']
 
     queries = get_queries(class_id, sel_user_id, sel_context_id)
-    summary = helper.get_summary(llm, get_summary(class_id, sel_user_id, sel_context_id))
+    summary = get_summary(class_id, sel_user_id, sel_context_id)
+    if summary is not None:
+        summary = helper.get_summary(llm, summary)
+    else:
+        summary = "No query data to analyze."
 
     return render_template("instructor.html",contexts=contexts, users=users, queries=queries, summary=summary, user=sel_user_name, context=sel_context_name)
 
